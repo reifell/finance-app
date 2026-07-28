@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Contas — Revisão Semanal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #14181A;
+    --panel: #1C2225;
+    --panel-2: #232A2E;
+    --line: #2E373C;
+    --ink: #E8E6DF;
+    --ink-dim: #9AA5A8;
+    --verde: #4C9A87;
+    --verde-forte: #6FC2AC;
+    --amber: #D7A24A;
+    --erro: #C96A5A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    padding: 32px 24px 80px;
+  }
+
+  h1 {
+    font-family: 'Zilla Slab', serif;
+    font-weight: 700;
+    font-size: 28px;
+    margin: 0 0 4px;
+    letter-spacing: 0.2px;
+  }
+
+  .subtitle {
+    color: var(--ink-dim);
+    font-size: 14px;
+    margin-bottom: 28px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin-bottom: 20px;
+  }
+
+  .sync-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  label { font-size: 13px; color: var(--ink-dim); }
+
+  input[type=number] {
+    width: 70px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  button {
+    background: var(--verde);
+    color: #0E1213;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  button:hover { background: var(--verde-forte); }
+  button:disabled { background: var(--line); color: var(--ink-dim); cursor: not-allowed; }
+
+  button.secundario {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--ink);
+  }
+  button.secundario:hover { background: var(--panel-2); }
+
+  .status-line {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    margin-top: 14px;
+    line-height: 1.7;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+
+  thead th {
+    text-align: left;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    padding: 0 10px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--line);
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr.pendente { background: rgba(215, 162, 74, 0.07); }
+
+  td {
+    padding: 10px;
+    vertical-align: middle;
+  }
+
+  td.valor {
+    font-family: 'IBM Plex Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  td.data {
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--ink-dim);
+    white-space: nowrap;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    padding: 2px 7px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .badge.memory { background: rgba(76,154,135,0.18); color: var(--verde-forte); }
+  .badge.keyword { background: rgba(76,154,135,0.18); color: var(--verde-forte); }
+  .badge.planilha { background: rgba(76,154,135,0.12); color: var(--ink-dim); }
+  .badge.pendente { background: rgba(215,162,74,0.2); color: var(--amber); }
+
+  select {
+    background: var(--panel-2);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    width: 100%;
+    max-width: 260px;
+  }
+  select.vazio { border-color: var(--amber); }
+
+  .memorizar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+  }
+  .memorizar input { width: 16px; height: 16px; accent-color: var(--verde); }
+
+  .resumo-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+  }
+  .resumo-item:last-child { border-bottom: none; }
+  .resumo-total {
+    font-family: 'Zilla Slab', serif;
+    font-size: 22px;
+    font-weight: 700;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .empty {
+    color: var(--ink-dim);
+    font-size: 14px;
+    padding: 20px 0;
+    text-align: center;
+  }
+
+  .footer-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+  }
+</style>
+</head>
+<body>
+
+  <h1>Livro-caixa — Revisão semanal</h1>
+  <div class="subtitle">Puxa as transações do Itaú (via Pluggy), sugere a categoria e escreve na planilha.</div>
+
+  <div class="card">
+    <div class="sync-row">
+      <button id="btnSync">Sincronizar</button>
+      <button class="secundario" id="btnAvancado" style="font-size:12px; padding:6px 10px;">Forçar período manual</button>
+      <span id="avancadoCampos" style="display:none; align-items:center; gap:8px;">
+        <label for="dias">Últimos</label>
+        <input type="number" id="dias" value="30" min="1" max="365">
+        <label>dias</label>
+      </span>
+    </div>
+    <div class="status-line" id="statusLine"></div>
+  </div>
+
+  <div class="card" id="cardTabela" style="display:none;">
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Descrição</th>
+          <th style="text-align:right;">Valor</th>
+          <th>Categoria</th>
+          <th style="text-align:center;">Memorizar</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="footer-actions">
+      <button class="secundario" id="btnCancelar">Descartar</button>
+      <button id="btnConfirmar">Confirmar tudo e gravar na planilha</button>
+    </div>
+  </div>
+
+  <div class="card" id="cardResumo" style="display:none;">
+    <h1 style="font-size:20px;">Resumo do período</h1>
+    <div id="resumoConteudo"></div>
+  </div>
+
+<script>
+let categorias = [];
+let linhas = []; // estado vivo da tabela: {transactionId, date, description, valorAbsoluto, despesa, memorize, origem}
+
+async function carregarCategorias() {
+  const resp = await fetch('/api/categories');
+  categorias = await resp.json();
+}
+
+function formatarMoeda(v) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function formatarData(iso) {
+  const d = new Date(iso);
+  const dataStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  const diaSemana = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+  return { dataStr, diaSemana };
+}
+
+function origemParaBadge(origem) {
+  if (!origem) return '<span class="badge pendente">precisa decidir</span>';
+  if (origem === 'memory') return '<span class="badge memory">memória</span>';
+  if (origem === 'keyword') return '<span class="badge keyword">regra</span>';
+  if (origem === 'planilha') return '<span class="badge planilha">planilha</span>';
+  return '';
+}
+
+function montarSelect(despesaAtual) {
+  const sel = document.createElement('select');
+  if (!despesaAtual) {
+    sel.classList.add('vazio');
+    const optVazia = document.createElement('option');
+    optVazia.value = '';
+    optVazia.textContent = '— escolher —';
+    sel.appendChild(optVazia);
+  }
+  for (const c of categorias) {
+    const opt = document.createElement('option');
+    opt.value = c.despesa;
+    opt.textContent = `${c.despesa} (${c.grupo} > ${c.categoria})`;
+    if (c.despesa === despesaAtual) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  return sel;
+}
+
+function renderizarTabela() {
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+
+  for (const linha of linhas) {
+    const tr = document.createElement('tr');
+    if (!linha.despesa) tr.classList.add('pendente');
+
+    const tdData = document.createElement('td');
+    tdData.className = 'data';
+    const { dataStr, diaSemana } = formatarData(linha.date);
+    tdData.innerHTML = `${dataStr}<div style="font-size:10px; opacity:0.7; text-transform:uppercase;">${diaSemana}</div>`;
+    tr.appendChild(tdData);
+
+    const tdDesc = document.createElement('td');
+    tdDesc.textContent = linha.description;
+    tr.appendChild(tdDesc);
+
+    const tdValor = document.createElement('td');
+    tdValor.className = 'valor';
+    tdValor.textContent = formatarMoeda(linha.valorAbsoluto);
+    tr.appendChild(tdValor);
+
+    const tdCategoria = document.createElement('td');
+    const select = montarSelect(linha.despesa);
+    select.addEventListener('change', () => {
+      linha.despesa = select.value || null;
+
+      // Propaga a escolha pra outras transações com a MESMA descrição
+      // que ainda estavam sem categoria — economiza cliques em compras repetidas
+      // no mesmo período (ex: várias idas ao mesmo lugar). Continua editável
+      // individualmente depois, se algum caso for exceção.
+      if (linha.despesa) {
+        let propagadas = 0;
+        for (const outra of linhas) {
+          if (outra !== linha && outra.description === linha.description && !outra.despesa) {
+            outra.despesa = linha.despesa;
+            outra.memorize = linha.memorize;
+            propagadas++;
+          }
+        }
+      }
+
+      renderizarTabela();
+    });
+    tdCategoria.appendChild(select);
+    tr.appendChild(tdCategoria);
+
+    const tdMemo = document.createElement('td');
+    const memoWrap = document.createElement('div');
+    memoWrap.className = 'memorizar';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = linha.memorize;
+    checkbox.addEventListener('change', () => { linha.memorize = checkbox.checked; });
+    memoWrap.appendChild(checkbox);
+    tdMemo.appendChild(memoWrap);
+    tr.appendChild(tdMemo);
+
+    const tdBadge = document.createElement('td');
+    tdBadge.innerHTML = origemParaBadge(linha.origem);
+    tr.appendChild(tdBadge);
+
+    tbody.appendChild(tr);
+  }
+
+  const pendentes = linhas.filter(l => !l.despesa).length;
+  document.getElementById('btnConfirmar').disabled = pendentes > 0;
+  document.getElementById('btnConfirmar').textContent = pendentes > 0
+    ? `Faltam ${pendentes} categoria(s) escolher`
+    : 'Confirmar tudo e gravar na planilha';
+}
+
+async function sincronizar() {
+  const diasInput = document.getElementById('dias');
+  const diasVisivel = document.getElementById('avancadoCampos').style.display !== 'none';
+  const dias = diasVisivel ? diasInput.value : null;
+
+  const statusLine = document.getElementById('statusLine');
+  const btn = document.getElementById('btnSync');
+  btn.disabled = true;
+  statusLine.textContent = 'Buscando transações e classificando...';
+
+  try {
+    const resp = await fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dias ? { days: dias } : {}),
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    linhas = [
+      ...data.confidentes.map(c => ({ ...c, origem: c.source, memorize: false })),
+      ...data.incertas.map(c => ({ ...c, despesa: null, origem: null, memorize: true })),
+    ];
+    linhas.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    statusLine.textContent =
+      `Período ${data.periodo.from} a ${data.periodo.to} (${data.periodo.origem}) · ` +
+      `${data.confidentes.length} classificadas automaticamente · ` +
+      `${data.incertas.length} precisam de revisão · ` +
+      `${data.jaProcessadas} já tinham sido processadas antes · ` +
+      `${data.ignoradasRendimento} rendimentos ignorados · ` +
+      `${data.ignoradasTransferencia} transferências internas excluídas`;
+
+    document.getElementById('cardResumo').style.display = 'none';
+    document.getElementById('cardTabela').style.display = linhas.length ? 'block' : 'none';
+    if (!linhas.length) statusLine.textContent += ' — nada novo pra revisar.';
+    renderizarTabela();
+  } catch (err) {
+    statusLine.textContent = 'Erro: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('btnAvancado').addEventListener('click', () => {
+  const campos = document.getElementById('avancadoCampos');
+  campos.style.display = campos.style.display === 'none' ? 'inline-flex' : 'none';
+});
+
+async function confirmarTudo() {
+  const btn = document.getElementById('btnConfirmar');
+  btn.disabled = true;
+  btn.textContent = 'Gravando na planilha...';
+
+  const items = linhas.map(l => ({
+    transactionId: l.transactionId,
+    date: l.date,
+    description: l.description,
+    valorAbsoluto: l.valorAbsoluto,
+    despesa: l.despesa,
+    memorize: l.memorize,
+  }));
+
+  const resp = await fetch('/api/confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items }),
+  });
+  const data = await resp.json();
+
+  document.getElementById('cardTabela').style.display = 'none';
+  const resumoDiv = document.getElementById('resumoConteudo');
+  resumoDiv.innerHTML = '';
+
+  const erros = data.resultados.filter(r => !r.ok);
+  if (erros.length) {
+    const p = document.createElement('div');
+    p.style.color = 'var(--erro)';
+    p.style.marginBottom = '12px';
+    p.textContent = `${erros.length} item(ns) falharam ao gravar — veja o console do servidor.`;
+    resumoDiv.appendChild(p);
+  }
+
+  for (const [categoria, valor] of Object.entries(data.resumo)) {
+    const div = document.createElement('div');
+    div.className = 'resumo-item';
+    div.innerHTML = `<span>${categoria}</span><span>${formatarMoeda(valor)}</span>`;
+    resumoDiv.appendChild(div);
+  }
+
+  const totalDiv = document.createElement('div');
+  totalDiv.className = 'resumo-total';
+  totalDiv.innerHTML = `<span>Total do período</span><span>${formatarMoeda(data.total)}</span>`;
+  resumoDiv.appendChild(totalDiv);
+
+  document.getElementById('cardResumo').style.display = 'block';
+}
+
+document.getElementById('btnSync').addEventListener('click', sincronizar);
+document.getElementById('btnConfirmar').addEventListener('click', confirmarTudo);
+document.getElementById('btnCancelar').addEventListener('click', () => {
+  linhas = [];
+  document.getElementById('cardTabela').style.display = 'none';
+  document.getElementById('statusLine').textContent = 'Descartado. Nada foi gravado na planilha.';
+});
+
+carregarCategorias();
+</script>
+</body>
+</html>
