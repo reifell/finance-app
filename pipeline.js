@@ -2,7 +2,7 @@ require('dotenv').config();
 const { classify } = require('./classify');
 const { buildAmountIndex, lookupAmount } = require('./sheet_reconciler');
 const { isInternalTransfer } = require('./internal_transfers');
-const { isProcessed, getLastProcessedDate } = require('./ledger');
+const { loadProcessedIds, getLastProcessedDate } = require('./sheet_ledger');
 const { fetchCategories } = require('./categories_dynamic');
 
 const CLIENT_ID = process.env.PLUGGY_CLIENT_ID;
@@ -82,7 +82,7 @@ async function runPipeline(daysBackOverride) {
     from.setDate(from.getDate() - daysBackOverride);
     periodoOrigem = 'manual';
   } else {
-    const ultimaData = getLastProcessedDate();
+    const ultimaData = await getLastProcessedDate();
     if (ultimaData) {
       from = new Date(ultimaData);
       from.setDate(from.getDate() - MARGEM_SEGURANCA_DIAS);
@@ -108,6 +108,7 @@ async function runPipeline(daysBackOverride) {
   const YEAR = String(to.getFullYear());
   const categories = await fetchCategories(YEAR);
   const amountIndex = await buildAmountIndex(YEAR, categories);
+  const processedIds = await loadProcessedIds();
 
   const confidentes = [];
   const incertas = [];
@@ -116,7 +117,7 @@ async function runPipeline(daysBackOverride) {
   let jaProcessadas = 0;
 
   for (const t of allTransactions) {
-    if (isProcessed(t.id)) {
+    if (processedIds.has(t.id)) {
       jaProcessadas++;
       continue;
     }

@@ -4,7 +4,7 @@ const path = require('path');
 const { runPipeline } = require('./pipeline');
 const { learn } = require('./classify');
 const { appendValueToCell } = require('./writer');
-const { markProcessed } = require('./ledger');
+const { markProcessedBatch } = require('./sheet_ledger');
 const { fetchCategories } = require('./categories_dynamic');
 
 const app = express();
@@ -39,11 +39,12 @@ app.post('/api/sync', async (req, res) => {
 /**
  * Recebe a decisão final do usuário pra uma lista de transações (confirmadas na tela de revisão)
  * e escreve cada uma na planilha. Formato esperado de cada item:
- * { transactionId, date, description, valorAbsoluto, despesa, memorize }
+ * { transactionId, date, description, valorAbsoluto, despesa, memorize, origem }
  */
 app.post('/api/confirm', async (req, res) => {
   const items = req.body.items || [];
   const resultados = [];
+  const paraLedger = [];
 
   const year = String(new Date().getFullYear());
   const categories = await fetchCategories(year);
@@ -60,8 +61,21 @@ app.post('/api/confirm', async (req, res) => {
         learn(item.description, item.despesa);
       }
 
-      const writeResult = await appendValueToCell(catInfo.row, item.date, item.valorAbsoluto);
-      markProcessed(item.transactionId, { despesa: item.despesa, valor: item.valorAbsoluto, date: item.date });
+      // IMPORTANTE: se a origem for "planilha" (reconciliada com um valor que
+      // JÁ estava lançado manualmente), o valor já existe na célula — escrever
+      // de novo duplicaria. Só marcamos como processada, sem re-escrever.
+      let cell = null;
+      if (item.origem !== 'planilha') {
+        const writeResult = await appendValueToCell(catInfo.row, item.date, item.valorAbsoluto);
+        cell = writeResult.range;
+      }
+
+      paraLedger.push({
+        transactionId: item.transactionId,
+        date: item.date,
+        despesa: item.despesa,
+        valor: item.valorAbsoluto,
+      });
 
       resultados.push({
         transactionId: item.transactionId,
@@ -70,12 +84,17 @@ app.post('/api/confirm', async (req, res) => {
         categoria: catInfo.categoria,
         grupo: catInfo.grupo,
         valor: item.valorAbsoluto,
-        cell: writeResult.range,
+        cell,
+        pulouEscrita: item.origem === 'planilha',
       });
     } catch (err) {
       console.error(err);
       resultados.push({ transactionId: item.transactionId, ok: false, error: err.message });
     }
+  }
+
+  if (paraLedger.length > 0) {
+    await markProcessedBatch(paraLedger);
   }
 
   // Resumo por grupo/categoria, pra tela de resumo final

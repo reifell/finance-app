@@ -433,6 +433,7 @@ async function confirmarTudo() {
     valorAbsoluto: l.valorAbsoluto,
     despesa: l.despesa,
     memorize: l.memorize,
+    origem: l.origem,
   }));
 
   const resp = await fetch('/api/confirm', {
