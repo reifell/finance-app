@@ -233,9 +233,11 @@
         <tr>
           <th>Data</th>
           <th>Descrição</th>
+          <th>Tipo</th>
           <th style="text-align:right;">Valor</th>
           <th>Categoria</th>
           <th style="text-align:center;">Memorizar</th>
+          <th style="text-align:center;">Já está na planilha</th>
           <th></th>
         </tr>
       </thead>
@@ -292,7 +294,9 @@ function montarSelect(despesaAtual) {
   for (const c of categorias) {
     const opt = document.createElement('option');
     opt.value = c.despesa;
-    opt.textContent = `${c.despesa} (${c.grupo} > ${c.categoria})`;
+    opt.textContent = c.categoria
+      ? `${c.categoria} > ${c.despesa}`
+      : `${c.grupo} > ${c.despesa}`;
     if (c.despesa === despesaAtual) opt.selected = true;
     sel.appendChild(opt);
   }
@@ -317,9 +321,14 @@ function renderizarTabela() {
     tdDesc.textContent = linha.description;
     tr.appendChild(tdDesc);
 
+    const tdTipo = document.createElement('td');
+    tdTipo.innerHTML = `<span class="badge planilha">${linha.tipo || '—'}</span>`;
+    tr.appendChild(tdTipo);
+
     const tdValor = document.createElement('td');
     tdValor.className = 'valor';
-    tdValor.textContent = formatarMoeda(linha.valorAbsoluto);
+    tdValor.textContent = (linha.direcao === 'entrada' ? '+ ' : '') + formatarMoeda(linha.valorAbsoluto);
+    if (linha.direcao === 'entrada') tdValor.style.color = 'var(--verde-forte)';
     tr.appendChild(tdValor);
 
     const tdCategoria = document.createElement('td');
@@ -358,6 +367,17 @@ function renderizarTabela() {
     tdMemo.appendChild(memoWrap);
     tr.appendChild(tdMemo);
 
+    const tdJaEsta = document.createElement('td');
+    const jaEstaWrap = document.createElement('div');
+    jaEstaWrap.className = 'memorizar';
+    const jaEstaCheckbox = document.createElement('input');
+    jaEstaCheckbox.type = 'checkbox';
+    jaEstaCheckbox.checked = !!linha.jaEstaNaPlanilha;
+    jaEstaCheckbox.addEventListener('change', () => { linha.jaEstaNaPlanilha = jaEstaCheckbox.checked; });
+    jaEstaWrap.appendChild(jaEstaCheckbox);
+    tdJaEsta.appendChild(jaEstaWrap);
+    tr.appendChild(tdJaEsta);
+
     const tdBadge = document.createElement('td');
     tdBadge.innerHTML = origemParaBadge(linha.origem);
     tr.appendChild(tdBadge);
@@ -365,7 +385,7 @@ function renderizarTabela() {
     tbody.appendChild(tr);
   }
 
-  const pendentes = linhas.filter(l => !l.despesa).length;
+  const pendentes = linhas.filter(l => !l.despesa && !l.jaEstaNaPlanilha).length;
   document.getElementById('btnConfirmar').disabled = pendentes > 0;
   document.getElementById('btnConfirmar').textContent = pendentes > 0
     ? `Faltam ${pendentes} categoria(s) escolher`
@@ -383,6 +403,8 @@ async function sincronizar() {
   statusLine.textContent = 'Buscando transações e classificando...';
 
   try {
+    await carregarCategorias(); // busca fresco a cada sincronização, pra pegar categorias novas criadas na planilha
+
     const resp = await fetch('/api/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -426,7 +448,10 @@ async function confirmarTudo() {
   btn.disabled = true;
   btn.textContent = 'Gravando na planilha...';
 
-  const items = linhas.map(l => ({
+  const linhasNormais = linhas.filter(l => !l.jaEstaNaPlanilha);
+  const linhasSoMarcar = linhas.filter(l => l.jaEstaNaPlanilha);
+
+  const items = linhasNormais.map(l => ({
     transactionId: l.transactionId,
     date: l.date,
     description: l.description,
@@ -443,6 +468,23 @@ async function confirmarTudo() {
   });
   const data = await resp.json();
 
+  let marcados = 0;
+  if (linhasSoMarcar.length > 0) {
+    const itemsMarcar = linhasSoMarcar.map(l => ({
+      transactionId: l.transactionId,
+      date: l.date,
+      despesa: l.despesa || null,
+      valorAbsoluto: l.valorAbsoluto,
+    }));
+    const respMarcar = await fetch('/api/mark-only', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: itemsMarcar }),
+    });
+    const dataMarcar = await respMarcar.json();
+    marcados = dataMarcar.marcados || 0;
+  }
+
   document.getElementById('cardTabela').style.display = 'none';
   const resumoDiv = document.getElementById('resumoConteudo');
   resumoDiv.innerHTML = '';
@@ -453,6 +495,14 @@ async function confirmarTudo() {
     p.style.color = 'var(--erro)';
     p.style.marginBottom = '12px';
     p.textContent = `${erros.length} item(ns) falharam ao gravar — veja o console do servidor.`;
+    resumoDiv.appendChild(p);
+  }
+
+  if (marcados > 0) {
+    const p = document.createElement('div');
+    p.style.color = 'var(--ink-dim)';
+    p.style.marginBottom = '12px';
+    p.textContent = `${marcados} item(ns) marcados como já processados, sem escrever na planilha.`;
     resumoDiv.appendChild(p);
   }
 

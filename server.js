@@ -56,6 +56,7 @@ app.post('/api/confirm', async (req, res) => {
         resultados.push({ transactionId: item.transactionId, ok: false, error: `Despesa "${item.despesa}" não encontrada na planilha (foi renomeada ou removida?)` });
         continue;
       }
+      console.log(`[MATCH] "${item.despesa}" -> linha ${catInfo.row} (${catInfo.grupo}${catInfo.categoria ? ' > ' + catInfo.categoria : ''})`);
 
       if (item.memorize) {
         learn(item.description, item.despesa);
@@ -68,6 +69,9 @@ app.post('/api/confirm', async (req, res) => {
       if (item.origem !== 'planilha') {
         const writeResult = await appendValueToCell(catInfo.row, item.date, item.valorAbsoluto);
         cell = writeResult.range;
+        console.log(`[GRAVADO] ${item.description} -> ${cell} | ${writeResult.previousFormula || '(vazia)'} -> ${writeResult.newFormula}`);
+      } else {
+        console.log(`[PULOU ESCRITA - já na planilha] ${item.description} -> ${item.despesa}`);
       }
 
       paraLedger.push({
@@ -101,11 +105,36 @@ app.post('/api/confirm', async (req, res) => {
   const resumo = {};
   for (const r of resultados) {
     if (!r.ok) continue;
-    const key = `${r.grupo} > ${r.categoria}`;
+    const key = r.categoria ? `${r.grupo} > ${r.categoria}` : r.grupo;
     resumo[key] = (resumo[key] || 0) + r.valor;
   }
 
   res.json({ resultados, resumo, total: resultados.filter(r => r.ok).reduce((s, r) => s + r.valor, 0) });
+});
+
+/**
+ * Marca transações como processadas SEM escrever nada na planilha —
+ * útil pra "quitar" itens de tentativas antigas que você já sabe que
+ * estão corretos na planilha (ou não têm certeza, mas não quer arriscar duplicar).
+ * Formato esperado de cada item: { transactionId, date, despesa, valorAbsoluto }
+ */
+app.post('/api/mark-only', async (req, res) => {
+  try {
+    const items = req.body.items || [];
+    const paraLedger = items.map(item => ({
+      transactionId: item.transactionId,
+      date: item.date,
+      despesa: item.despesa || '(marcado manualmente, sem categoria)',
+      valor: item.valorAbsoluto,
+    }));
+    if (paraLedger.length > 0) {
+      await markProcessedBatch(paraLedger);
+    }
+    res.json({ ok: true, marcados: paraLedger.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 4001;

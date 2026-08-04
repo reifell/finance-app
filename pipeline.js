@@ -51,6 +51,20 @@ function formatDate(d) {
 const isRendimentoAutomatico = (t) => /rend\.?\s*pago\s*aplic/i.test(t.description);
 
 /**
+ * Rótulo simples do "canal" da transação, pra exibir na tela de revisão
+ * (ex: "Cartão", "Pix", "Boleto"). Baseado nos campos que o Pluggy retorna.
+ */
+function detectarTipo(t) {
+  if (t.creditCardMetadata) return 'Cartão';
+  const desc = t.description.toLowerCase();
+  if (desc.includes('pix')) return 'Pix';
+  if (desc.includes('boleto')) return 'Boleto';
+  if (desc.includes('débito automático') || desc.includes('debito automatico')) return 'Débito Automático';
+  if (desc.includes('ted') || desc.includes('doc') || desc.includes('transfer')) return 'Transferência';
+  return t.accountType === 'CREDIT' ? 'Cartão' : 'Outro';
+}
+
+/**
  * Roda o pipeline completo: busca transações, filtra ruído/transferências,
  * classifica com memória+regras+reconciliação, e separa em:
  *  - confidentes: prontas pra escrever direto
@@ -130,15 +144,16 @@ async function runPipeline(daysBackOverride) {
       continue;
     }
 
-    const isExpense = t.type === 'DEBIT';
     const valorAbsoluto = Math.abs(t.amount);
-    if (!isExpense) continue; // receitas fora do escopo por enquanto
+    const tipo = detectarTipo(t);
 
     const base = {
       transactionId: t.id,
       date: t.date,
       description: t.description,
       valorAbsoluto,
+      tipo,
+      direcao: t.type === 'DEBIT' ? 'saida' : 'entrada',
     };
 
     const result = classify(t.description, valorAbsoluto, categories);
