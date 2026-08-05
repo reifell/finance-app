@@ -30,17 +30,25 @@ async function getAccounts(apiKey, itemId) {
 }
 
 async function getTransactions(apiKey, accountId, from, to) {
-  let page = 1;
   let all = [];
-  while (true) {
-    const url = `https://api.pluggy.ai/transactions?accountId=${accountId}&from=${from}&to=${to}&page=${page}&pageSize=100`;
+  let url = `https://api.pluggy.ai/v2/transactions?accountId=${accountId}&dateFrom=${from}&dateTo=${to}`;
+
+  while (url) {
     const resp = await fetch(url, { headers: { 'X-API-KEY': apiKey } });
     const data = await resp.json();
     if (!data.results) throw new Error('Falha ao buscar transações: ' + JSON.stringify(data));
     all = all.concat(data.results);
-    if (page >= data.totalPages) break;
-    page++;
+
+    if (data.next) {
+      // "next" vem como uma query string (ex: "?accountId=...&after=...") — anexa na base v2
+      url = data.next.startsWith('http')
+        ? data.next
+        : `https://api.pluggy.ai/v2/transactions${data.next}`;
+    } else {
+      url = null;
+    }
   }
+
   return all;
 }
 
